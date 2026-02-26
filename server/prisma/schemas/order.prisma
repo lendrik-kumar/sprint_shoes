@@ -1,0 +1,70 @@
+// Order module Prisma schema
+
+model Order {
+  id          String @id @default(uuid())
+  orderNumber String @unique
+  userId      String
+  user        User   @relation(fields: [userId], references: [id])
+
+  status OrderStatus @default(PENDING)
+
+  items           OrderItem[]
+  totalAmount     Float
+  taxAmount       Float     @default(0)
+  shippingAmount  Float     @default(0)
+  discountAmount  Float     @default(0)
+
+  // Shipping
+  shippingAddressId String?
+  shippingAddress   Json?
+
+  // Payment
+  payment Payment?
+
+  // Notes
+  notes String? @db.Text
+
+  // Timestamps
+  cancelledAt DateTime?
+  returnedAt  DateTime?
+  cancelReason String?
+  returnReason String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([userId])
+  @@index([status])
+  @@index([orderNumber])
+}
+
+model OrderItem {
+  id      String @id @default(uuid())
+  orderId String
+  order   Order  @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId String
+  product   Product @relation(fields: [productId], references: [id])
+
+  sizeId String
+  size   Size   @relation(fields: [sizeId], references: [id])
+
+  quantity  Int
+  unitPrice Float
+  totalPrice Float
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([orderId])
+  @@index([productId])
+}
+
+enum OrderStatus {
+  PENDING
+  PROCESSING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  RETURNED
+}

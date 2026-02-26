@@ -1,0 +1,15 @@
+node_modules
+dist
+npm-debug.log
+.env
+.env.*
+.git
+.gitignore
+.vscode
+.DS_Store
+*.log
+coverage
+tests
+.eslintrc*
+prettier.config.js
+jest.config.ts

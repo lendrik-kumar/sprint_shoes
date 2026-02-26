@@ -1,0 +1,22 @@
+// Monitoring module Prisma schema
+
+model HealthCheck {
+  id              String   @id @default(uuid())
+  
+  service         String
+  status          HealthStatus
+  responseTime    Int      // in ms
+  
+  message         String?
+  
+  createdAt       DateTime @default(now())
+  
+  @@index([service])
+  @@index([createdAt])
+}
+
+enum HealthStatus {
+  UP
+  DOWN
+  DEGRADED
+}

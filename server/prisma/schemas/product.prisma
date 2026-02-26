@@ -1,0 +1,108 @@
+// Product module Prisma schema
+
+model Category {
+  id              String   @id @default(uuid())
+  name            String   @unique
+  slug            String   @unique
+  description     String?  @db.Text
+  image           String?
+  
+  products        Product[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+}
+
+model Product {
+  id              String   @id @default(uuid())
+  categoryId      String
+  category        Category @relation(fields: [categoryId], references: [id])
+  
+  name            String
+  slug            String   @unique
+  description     String?  @db.Text
+  basePrice       Float
+  discountPrice   Float?
+  discountPercent Float?   @default(0)
+  
+  sku             String   @unique
+  isActive        Boolean  @default(true)
+  
+  variants        ProductVariant[]
+  images          ProductImage[]
+  reviews         Review[]
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([categoryId])
+  @@index([slug])
+}
+
+model ProductVariant {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  name            String
+  value           String
+  
+  sizes           Size[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([productId, name, value])
+  @@index([productId])
+}
+
+model Size {
+  id              String   @id @default(uuid())
+  variantId       String
+  variant         ProductVariant @relation(fields: [variantId], references: [id], onDelete: Cascade)
+  
+  size            String
+  quantity        Int      @default(0)
+  
+  cartItems       CartItem[]
+  orderItems      OrderItem[]
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@unique([variantId, size])
+  @@index([variantId])
+}
+
+model ProductImage {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  url             String
+  altText         String?
+  displayOrder    Int      @default(0)
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([productId])
+}
+
+model Review {
+  id              String   @id @default(uuid())
+  productId       String
+  product         Product  @relation(fields: [productId], references: [id], onDelete: Cascade)
+  
+  userEmail       String
+  rating          Int
+  title           String?
+  content         String?  @db.Text
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([productId])
+}

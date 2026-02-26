@@ -1,0 +1,10 @@
+{
+  "name": "@ecommerce/shared",
+  "version": "1.0.0",
+  "description": "Shared types and schemas for ecommerce monorepo",
+  "type": "module",
+  "main": "types.ts",
+  "exports": {
+    ".": "./types.ts"
+  }
+}

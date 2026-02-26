@@ -1,0 +1,38 @@
+// Payment module Prisma schema
+
+model Payment {
+  id              String   @id @default(uuid())
+  orderId         String   @unique
+  order           Order    @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  
+  amount          Float
+  method          PaymentMethod @default(MOCK)
+  status          PaymentStatus @default(PENDING)
+  
+  transactionId   String?  @unique
+  referenceId     String?
+  metadata        String?  @db.Text
+  
+  failureReason   String?
+  
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+  
+  @@index([orderId])
+  @@index([status])
+}
+
+enum PaymentMethod {
+  MOCK
+  CARD
+  UPI
+  NETBANKING
+  WALLET
+}
+
+enum PaymentStatus {
+  PENDING
+  COMPLETED
+  FAILED
+  REFUNDED
+}

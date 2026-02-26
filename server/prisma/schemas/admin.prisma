@@ -1,0 +1,22 @@
+// Admin module Prisma schema
+
+model AuditLog {
+  id         String @id @default(uuid())
+  userId     String
+  user       User   @relation(fields: [userId], references: [id])
+
+  action     String
+  resource   String
+  resourceId String?
+  metadata   Json?
+
+  ipAddress  String?
+  userAgent  String?
+
+  createdAt  DateTime @default(now())
+
+  @@index([userId])
+  @@index([resource])
+  @@index([action])
+  @@index([createdAt])
+}

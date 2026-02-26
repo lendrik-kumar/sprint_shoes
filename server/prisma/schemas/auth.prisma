@@ -1,0 +1,114 @@
+// Auth module Prisma schema
+
+model User {
+  id            String   @id @default(uuid())
+  email         String   @unique
+  phone         String?  @unique
+  passwordHash  String
+  firstName     String?
+  lastName      String?
+  dateOfBirth   DateTime?
+  profileImage  String?
+  bio           String?  @db.Text
+  role          UserRole @default(CUSTOMER)
+
+  // Email verification
+  emailVerified    Boolean  @default(false)
+  emailVerifiedAt  DateTime?
+  emailVerifyToken String?  @unique
+
+  // Phone verification
+  phoneVerified   Boolean  @default(false)
+  phoneVerifiedAt DateTime?
+
+  // Account status
+  isActive    Boolean  @default(true)
+  lastLoginAt DateTime?
+
+  // Notification preferences
+  newsletters     Boolean @default(true)
+  smsNotifications Boolean @default(false)
+
+  // Relations
+  sessions       Session[]
+  refreshTokens  RefreshToken[]
+  passwordResets PasswordReset[]
+  otpAttempts    OTPAttempt[]
+  addresses      Address[]
+  orders         Order[]
+  auditLogs      AuditLog[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([email])
+  @@index([phone])
+}
+
+model Session {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  userAgent String?
+  ipAddress String?
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model RefreshToken {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String   @unique
+  revokedAt DateTime?
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model PasswordReset {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  token     String   @unique
+  usedAt    DateTime?
+  expiresAt DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+}
+
+model OTPAttempt {
+  id     String @id @default(uuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  phone      String
+  otpHash    String
+  attempts   Int      @default(0)
+  verifiedAt DateTime?
+  expiresAt  DateTime
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([phone])
+}
+
+enum UserRole {
+  CUSTOMER
+  ADMIN
+  SUPERADMIN
+}
+
