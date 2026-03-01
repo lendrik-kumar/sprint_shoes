@@ -1,8 +1,11 @@
 import React from 'react'
 import gsap from 'gsap';
 import { useGSAP } from '@gsap/react';
+import { ScrollTrigger } from 'gsap/ScrollTrigger';
 import VideoCarousel from './VideoCarousel';
 import { Play, ArrowRight, ChevronRight } from 'lucide-react';
+
+gsap.registerPlugin(ScrollTrigger);
 
 const Highlights = () => {
   useGSAP(() => {
@@ -10,7 +13,12 @@ const Highlights = () => {
       opacity: 1,
       y: 0,
       duration: 1,
-      ease: 'power3.out'
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: '#highlights',
+        start: 'top 80%',
+        toggleActions: 'play none none none'
+      }
     });
 
     gsap.to('.link', {
@@ -18,7 +26,12 @@ const Highlights = () => {
       y: 0,
       duration: 0.8,
       stagger: 0.15,
-      ease: 'power3.out'
+      ease: 'power3.out',
+      scrollTrigger: {
+        trigger: '#highlights',
+        start: 'top 80%',
+        toggleActions: 'play none none none'
+      }
     });
   }, []);
 

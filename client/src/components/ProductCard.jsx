@@ -159,14 +159,14 @@ const ProductCard = ({
         </div>
 
         {/* Content */}
-        <div className="p-5">
+        <div className="p-5 border-t border-neutral-100">
           {/* Brand */}
-          <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-1.5">
             {brand}
           </p>
 
           {/* Name */}
-          <h3 className="text-base font-bold text-neutral-900 line-clamp-2 group-hover:text-amber-600 transition-colors mb-2">
+          <h3 className="text-base font-bold text-neutral-900 line-clamp-2 group-hover:text-amber-500 transition-colors mb-2.5">
             {name}
           </h3>
 

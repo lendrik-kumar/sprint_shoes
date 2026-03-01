@@ -4,7 +4,6 @@ import {
   X,
   SlidersHorizontal,
   Check,
-  Sparkles,
 } from "lucide-react";
 import { categories, sortOptions } from "../constants/products";
 
@@ -118,29 +117,6 @@ const ProductFilters = ({
                 className="sr-only"
               />
             </label>
-          ))}
-        </div>
-      </FilterSection>
-
-      {/* Gender Filter */}
-      <FilterSection
-        title="Gender"
-        isExpanded={expandedSections.gender}
-        onToggle={() => toggleSection("gender")}
-      >
-        <div className="flex gap-3">
-          {["men", "women"].map((gender) => (
-            <button
-              key={gender}
-              onClick={() => handleGenderChange(gender)}
-              className={`flex-1 py-3 px-4 text-sm font-bold rounded-xl border-2 transition-all duration-300 ${
-                filters.gender === gender
-                  ? "bg-amber-500 text-neutral-900 border-amber-500 shadow-lg shadow-amber-500/25"
-                  : "bg-white text-neutral-700 border-neutral-200 hover:border-amber-300 hover:bg-amber-50"
-              }`}
-            >
-              {gender.charAt(0).toUpperCase() + gender.slice(1)}
-            </button>
           ))}
         </div>
       </FilterSection>
@@ -289,7 +265,7 @@ const ProductFilters = ({
       <div className="hidden lg:block">
         <div className="flex items-center justify-between mb-6 pb-4 border-b border-neutral-200">
           <div className="flex items-center gap-2">
-            <Sparkles className="w-5 h-5 text-amber-500" />
+            <SlidersHorizontal className="w-5 h-5 text-amber-500" />
             <h2 className="text-lg font-bold text-neutral-900">Filters</h2>
           </div>
           <span className="text-sm font-medium text-neutral-500 bg-neutral-100 px-3 py-1 rounded-full">
@@ -312,7 +288,7 @@ const ProductFilters = ({
           <div className="absolute right-0 top-0 h-full w-full max-w-sm bg-white shadow-2xl animate-slide-in-right">
             <div className="flex items-center justify-between p-5 border-b border-neutral-200 bg-neutral-50">
               <div className="flex items-center gap-2">
-                <Sparkles className="w-5 h-5 text-amber-500" />
+                <SlidersHorizontal className="w-5 h-5 text-amber-500" />
                 <h2 className="text-lg font-bold text-neutral-900">Filters</h2>
               </div>
               <button

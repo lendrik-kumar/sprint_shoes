@@ -35,8 +35,9 @@ const VideoCarousel = () => {
 
     gsap.to('#video', {
       scrollTrigger: {
-        trigger: '#video',
-        toggleActions: 'restart none none none'
+        trigger: '#highlights',
+        start: 'top 60%',
+        toggleActions: 'play none none none'
       },
       onComplete: () => {
         setVideo(prev => ({ ...prev, startPlay: true, isPlaying: true }))
@@ -60,22 +61,30 @@ const VideoCarousel = () => {
   useEffect(() => {
     let currentProgress = 0;
     let span = videoSpanRef.current;
+    let animUpdateRef = null;
+    let anim = null;
 
-    // Reset all indicators first, then animate current
+    // Kill ALL tweens on every indicator to stop stale animations
+    hightlightsSlides.forEach((_, i) => {
+      gsap.killTweensOf(videoDivRef.current[i]);
+      gsap.killTweensOf(span[i]);
+    });
+
+    // Reset all indicators based on state
     hightlightsSlides.forEach((_, i) => {
       if (i < videoId) {
-        // Completed videos - show full progress
         gsap.set(videoDivRef.current[i], { width: '8px' });
         gsap.set(span[i], { width: '100%', backgroundColor: '#525252' });
       } else if (i > videoId) {
-        // Future videos - reset to empty
         gsap.set(videoDivRef.current[i], { width: '8px' });
         gsap.set(span[i], { width: '0%', backgroundColor: '#525252' });
+      } else {
+        gsap.set(span[i], { width: '0%', backgroundColor: '#f59e0b' });
       }
     });
 
     if (span[videoId]) {
-      let anim = gsap.to(span[videoId], {
+      anim = gsap.to(span[videoId], {
         onUpdate: () => {
           const progress = Math.ceil(anim.progress() * 100);
           if (progress !== currentProgress) {
@@ -110,19 +119,31 @@ const VideoCarousel = () => {
         }
       });
 
-      if (videoId === 0) anim.restart();
+      anim.restart();
 
-      const animUpdate = () => {
-        anim.progress(
-          videoRef.current[videoId].currentTime /
-            hightlightsSlides[videoId].videoDuration
-        );
+      animUpdateRef = () => {
+        if (videoRef.current[videoId]) {
+          anim.progress(
+            videoRef.current[videoId].currentTime /
+              hightlightsSlides[videoId].videoDuration
+          );
+        }
       };
 
-      isPlaying
-        ? gsap.ticker.add(animUpdate)
-        : gsap.ticker.remove(animUpdate);
+      if (isPlaying) {
+        gsap.ticker.add(animUpdateRef);
+      }
     }
+
+    // Cleanup: remove ticker callback and kill tweens when videoId changes
+    return () => {
+      if (animUpdateRef) {
+        gsap.ticker.remove(animUpdateRef);
+      }
+      if (anim) {
+        anim.kill();
+      }
+    };
   }, [videoId, startPlay]);
 
   // Auto-restart from beginning when last video ends
@@ -170,6 +191,9 @@ const VideoCarousel = () => {
 
   const handleIndicatorClick = (index) => {
     if (index !== videoId) {
+      // Pause current video and reset it
+      videoRef.current[videoId].pause();
+      videoRef.current[videoId].currentTime = 0;
       setVideo(prev => ({ ...prev, videoId: index, isEnd: true }));
     }
   };
