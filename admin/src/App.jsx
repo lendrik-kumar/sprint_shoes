@@ -12,9 +12,12 @@ const AdminLoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     clearError();
-    const result = await login(email, password);
-    if (result.success) {
-      window.location.reload();
+    try {
+      await login(email, password);
+      // On success, the store sets isAuthenticated = true
+      // and the App component automatically re-renders to show AdminDashboard
+    } catch {
+      // Error is already captured and set in the store by the login function
     }
   };
 
@@ -26,7 +29,7 @@ const AdminLoginPage = () => {
           <p className="text-gray-600">Sign in to your admin account</p>
         </div>
 
-        {error && <Alert variant="error" message={error} className="mb-6" />}
+        {error && <Alert severity="error" className="mb-6">{error.message}</Alert>}
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <Input

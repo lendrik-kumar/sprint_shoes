@@ -17,6 +17,16 @@ interface AdminAuthState {
   clearError: () => void;
 }
 
+// Decode JWT payload without a library
+const decodeJwtPayload = (token: string): Record<string, any> => {
+  try {
+    const base64 = token.split('.')[1].replace(/-/g, '+').replace(/_/g, '/');
+    return JSON.parse(atob(base64));
+  } catch {
+    return {};
+  }
+};
+
 export const useAuthStore = create<AdminAuthState>()(
   persist(
     (set, get) => ({
@@ -39,7 +49,21 @@ export const useAuthStore = create<AdminAuthState>()(
         try {
           const { data } = await authApi.login(email, password);
           if (data.success) {
-            const { user, accessToken, refreshToken } = data.data;
+            const { accessToken, refreshToken } = data.data;
+
+            // Use user from response if available, otherwise decode from JWT
+            let user: User = (data.data as any).user;
+            if (!user) {
+              const payload = decodeJwtPayload(accessToken);
+              user = {
+                id: payload.userId,
+                email: payload.email,
+                role: payload.role,
+                firstName: null,
+                lastName: null,
+              } as unknown as User;
+            }
+
             if (user.role !== 'ADMIN' && user.role !== 'SUPERADMIN') {
               set({
                 error: { success: false, message: 'Access denied. Admin privileges required.' },

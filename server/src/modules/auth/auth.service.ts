@@ -34,6 +34,16 @@ export interface AuthTokens {
   refreshToken: string;
 }
 
+export interface AuthResponse extends AuthTokens {
+  user: {
+    id: string;
+    email: string;
+    firstName: string | null;
+    lastName: string | null;
+    role: string;
+  };
+}
+
 export class AuthService {
   async register(input: RegisterInput): Promise<AuthTokens> {
     const existingUser = await prisma.user.findUnique({
@@ -59,7 +69,7 @@ export class AuthService {
     return tokens;
   }
 
-  async login(input: LoginInput): Promise<AuthTokens> {
+  async login(input: LoginInput): Promise<AuthResponse> {
     const user = await prisma.user.findUnique({
       where: { email: input.email },
     });
@@ -83,7 +93,16 @@ export class AuthService {
     });
 
     const tokens = this.generateTokens(user.id, user.email, user.role as UserRole);
-    return tokens;
+    return {
+      ...tokens,
+      user: {
+        id: user.id,
+        email: user.email,
+        firstName: user.firstName,
+        lastName: user.lastName,
+        role: user.role,
+      },
+    };
   }
 
   async refreshToken(refreshToken: string): Promise<AuthTokens> {

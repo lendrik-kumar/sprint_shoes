@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { authService, RegisterInput, LoginInput } from './auth.service';
+import { authService, RegisterInput, LoginInput, AuthResponse } from './auth.service';
 import { success, ok } from '@utils/response';
 import { CACHE_KEYS, redis } from '@utils/redis';
 
