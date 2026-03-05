@@ -1,5 +1,5 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import { BarChart3, Users, Package, ShoppingCart, TrendingUp, LogOut, Plus, Pencil, Trash2, Eye, RefreshCw } from 'lucide-react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { BarChart3, Users, Package, ShoppingCart, TrendingUp, LogOut, Plus, Pencil, Trash2, RefreshCw, Upload, X, ImageIcon } from 'lucide-react';
 import { useAuthStore } from '../stores/authStore';
 
 // ─── API helper ─────────────────────────────────────────────────────────────
@@ -335,6 +335,99 @@ function UserManagementTab() {
   );
 }
 
+// ─── Image Upload Component ─────────────────────────────────────────────────
+const SERVER_BASE = (import.meta.env.VITE_API_URL || 'http://localhost:3000/api').replace('/api', '');
+
+function ImageUploader({ value, onChange }) {
+  const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
+  const inputRef = useRef(null);
+
+  const handleFile = async (file) => {
+    if (!file) return;
+    setUploading(true);
+    setUploadError(null);
+    try {
+      const formData = new FormData();
+      formData.append('image', file);
+      const res = await fetch(`${API_BASE}/upload/product-image`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${getToken()}` },
+        body: formData,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.message || 'Upload failed');
+      onChange(json.data.url);
+    } catch (e) {
+      setUploadError(e.message);
+    } finally {
+      setUploading(false);
+    }
+  };
+
+  const handleDrop = (e) => {
+    e.preventDefault();
+    const file = e.dataTransfer.files[0];
+    if (file) handleFile(file);
+  };
+
+  const previewSrc = value
+    ? value.startsWith('http') ? value : `${SERVER_BASE}${value}`
+    : null;
+
+  return (
+    <div>
+      <label className="block text-sm font-medium text-gray-700 mb-1">Product Image</label>
+
+      {/* Preview */}
+      {previewSrc && (
+        <div className="relative mb-2 inline-block">
+          <img
+            src={previewSrc}
+            alt="Preview"
+            className="w-32 h-32 object-cover rounded-lg border border-gray-200"
+          />
+          <button
+            type="button"
+            onClick={() => onChange('')}
+            className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-600"
+          >
+            <X className="w-3 h-3" />
+          </button>
+        </div>
+      )}
+
+      {/* Drop zone */}
+      <div
+        onDrop={handleDrop}
+        onDragOver={(e) => e.preventDefault()}
+        onClick={() => inputRef.current?.click()}
+        className="flex flex-col items-center justify-center gap-2 w-full px-4 py-6 border-2 border-dashed border-gray-300 rounded-lg cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+      >
+        {uploading ? (
+          <div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin" />
+        ) : (
+          <>
+            <Upload className="w-6 h-6 text-gray-400" />
+            <p className="text-sm text-gray-500">
+              <span className="font-medium text-blue-600">Click to upload</span> or drag & drop
+            </p>
+            <p className="text-xs text-gray-400">PNG, JPG, WEBP, AVIF up to 5MB</p>
+          </>
+        )}
+      </div>
+      <input
+        ref={inputRef}
+        type="file"
+        accept="image/jpeg,image/png,image/webp,image/avif,image/gif"
+        className="hidden"
+        onChange={(e) => handleFile(e.target.files[0])}
+      />
+      {uploadError && <p className="mt-1 text-xs text-red-600">{uploadError}</p>}
+    </div>
+  );
+}
+
 // ═══════════════════════════════════════════════════════════════════════════
 // Product Management Tab — FULL CRUD
 // ═══════════════════════════════════════════════════════════════════════════
@@ -566,15 +659,7 @@ function ProductManagementTab() {
                   </select>
                 </div>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
-                <input
-                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
-                  placeholder="/assets/shoes/shoe-5.avif"
-                  value={formData.image}
-                  onChange={(e) => updateField('image', e.target.value)}
-                />
-              </div>
+              <ImageUploader value={formData.image} onChange={(url) => updateField('image', url)} />
               <div className="flex justify-end gap-3 pt-2">
                 <button
                   type="button"
@@ -624,11 +709,17 @@ function ProductManagementTab() {
               {products.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
                   <td className="px-6 py-3">
-                    <img
-                      src={product.images?.[0]?.url || '/assets/shoes/shoe-5.avif'}
-                      alt={product.name}
-                      className="w-12 h-12 object-cover rounded-lg"
-                    />
+                    {product.images?.[0]?.url ? (
+                      <img
+                        src={product.images[0].url.startsWith('http') ? product.images[0].url : `${SERVER_BASE}${product.images[0].url}`}
+                        alt={product.name}
+                        className="w-12 h-12 object-cover rounded-lg"
+                      />
+                    ) : (
+                      <div className="w-12 h-12 rounded-lg bg-gray-100 flex items-center justify-center">
+                        <ImageIcon className="w-5 h-5 text-gray-400" />
+                      </div>
+                    )}
                   </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{product.sku}</td>

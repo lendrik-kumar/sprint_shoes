@@ -1,7 +1,13 @@
 import { useState, useEffect, useCallback } from "react";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000/api";
+const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:3000/api";const SERVER_BASE = API_BASE.replace('/api', '');
 
+function resolveImageUrl(url) {
+  if (!url) return '/assets/shoes/shoe-5.avif';
+  if (url.startsWith('http')) return url;
+  if (url.startsWith('/uploads')) return `${SERVER_BASE}${url}`;
+  return url;
+}
 /**
  * Custom hook for fetching products from the real API
  */
@@ -58,14 +64,14 @@ export function useProducts(initialFilters = {}) {
           category: p.category?.slug || "lifestyle",
           gender: "unisex",
           price: p.discountPrice ?? p.basePrice,
-          originalPrice: p.basePrice,
+          originalPrice: p.discountPrice ? p.basePrice : null,
           rating: 4.5,
           reviewCount: 0,
           colors: p.variants?.map((v) => v.value) || [],
-          sizes: p.variants?.flatMap((v) => v.sizes?.map((s) => s.size)) || [],
-          images: p.images?.map((img) => img.url) || ["/assets/shoes/shoe-5.avif"],
-          thumbnail: p.images?.[0]?.url || "/assets/shoes/shoe-5.avif",
-          description: p.description || "",
+          sizes: [...new Set(p.variants?.flatMap((v) => v.sizes?.map((s) => s.size)) || [])].sort((a, b) => parseFloat(a) - parseFloat(b)),
+          images: p.images?.map((img) => resolveImageUrl(img.url)) || ['/assets/shoes/shoe-5.avif'],
+          thumbnail: resolveImageUrl(p.images?.[0]?.url),
+          description: p.description || '',
           features: [],
           isNew: true,
           isBestseller: false,
@@ -142,14 +148,14 @@ export function useProduct(productId) {
             category: p.category?.slug || "lifestyle",
             gender: "unisex",
             price: p.discountPrice ?? p.basePrice,
-            originalPrice: p.basePrice,
+            originalPrice: p.discountPrice ? p.basePrice : null,
             rating: 4.5,
             reviewCount: p.reviews?.length || 0,
             colors: p.variants?.map((v) => v.value) || [],
-            sizes: p.variants?.flatMap((v) => v.sizes?.map((s) => s.size)) || [],
-            images: p.images?.map((img) => img.url) || ["/assets/shoes/shoe-5.avif"],
-            thumbnail: p.images?.[0]?.url || "/assets/shoes/shoe-5.avif",
-            description: p.description || "",
+            sizes: [...new Set(p.variants?.flatMap((v) => v.sizes?.map((s) => s.size)) || [])].sort((a, b) => parseFloat(a) - parseFloat(b)),
+            images: p.images?.map((img) => resolveImageUrl(img.url)) || ['/assets/shoes/shoe-5.avif'],
+            thumbnail: resolveImageUrl(p.images?.[0]?.url),
+            description: p.description || '',
             features: [],
             isNew: true,
             isBestseller: false,
@@ -158,7 +164,7 @@ export function useProduct(productId) {
           });
         } else {
           setProduct(null);
-          setError("Product not found");
+          setError('Product not found');
         }
       } catch (err) {
         setError(err.message || "Failed to fetch product");
@@ -203,10 +209,10 @@ export function useRelatedProducts(productId, limit = 4) {
               brand: p.category?.name || "Sprint Shoes",
               category: p.category?.slug || "lifestyle",
               price: p.discountPrice ?? p.basePrice,
-              originalPrice: p.basePrice,
+              originalPrice: p.discountPrice ? p.basePrice : null,
               rating: 4.5,
-              images: p.images?.map((img) => img.url) || ["/assets/shoes/shoe-5.avif"],
-              thumbnail: p.images?.[0]?.url || "/assets/shoes/shoe-5.avif",
+              images: p.images?.map((img) => resolveImageUrl(img.url)) || ['/assets/shoes/shoe-5.avif'],
+              thumbnail: resolveImageUrl(p.images?.[0]?.url),
               inStock: p.isActive !== false,
             }));
           setProducts(mapped);

@@ -144,10 +144,23 @@ export class AdminController {
     }
     if (description !== undefined) updateData.description = description;
     if (basePrice !== undefined) updateData.basePrice = parseFloat(basePrice);
-    if (discountPrice !== undefined) updateData.discountPrice = parseFloat(discountPrice);
-    if (discountPercent !== undefined) updateData.discountPercent = parseFloat(discountPercent);
+    if (discountPrice !== undefined) updateData.discountPrice = discountPrice ? parseFloat(discountPrice) : null;
+    if (discountPercent !== undefined) updateData.discountPercent = discountPercent ? parseFloat(discountPercent) : null;
     if (categoryId !== undefined) updateData.categoryId = categoryId;
     if (isActive !== undefined) updateData.isActive = isActive;
+
+    // ── Update images: replace primary image if provided ─────────────────────
+    const newImageUrl: string | undefined = images?.[0] ?? image;
+    if (newImageUrl !== undefined) {
+      // Delete existing images and replace with the new one
+      await prisma.productImage.deleteMany({ where: { productId: req.params.id } });
+      if (newImageUrl) {
+        const urlsToCreate = images?.length
+          ? (images as string[]).map((url: string, i: number) => ({ url, displayOrder: i, productId: req.params.id }))
+          : [{ url: newImageUrl, displayOrder: 0, productId: req.params.id }];
+        await prisma.productImage.createMany({ data: urlsToCreate });
+      }
+    }
 
     const product = await prisma.product.update({
       where: { id: req.params.id },

@@ -48,6 +48,7 @@ services:
     volumes:
       - .:/app
       - /app/node_modules
+      - uploads_data:/app/uploads
     ports:
       - "3000:3000"
     depends_on:
@@ -67,3 +68,4 @@ services:
 volumes:
   postgres_data:
   redis_data:
+  uploads_data:
