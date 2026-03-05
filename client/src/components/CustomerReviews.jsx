@@ -1,5 +1,6 @@
-import React, { useState } from "react";
+import React, { useState, useRef, useEffect } from "react";
 import { ChevronLeft, ChevronRight, Star, BadgeCheck } from "lucide-react";
+import gsap from "gsap";
 
 /**
  * CustomerReviews Component
@@ -7,6 +8,8 @@ import { ChevronLeft, ChevronRight, Star, BadgeCheck } from "lucide-react";
  */
 const CustomerReviews = () => {
   const [currentIndex, setCurrentIndex] = useState(0);
+  const [isAnimating, setIsAnimating] = useState(false);
+  const cardRef = useRef(null);
 
   const reviews = [
     {
@@ -17,7 +20,7 @@ const CustomerReviews = () => {
       title: "Comfort that stands out",
       review:
         "Not gonna lie, these shoes stole the spotlight more than the view. Crazy comfy, easy to style, and they've been my go-to ever since I got them.",
-      image: "/assets/images/review-1.jpg",
+      image: "https://images.unsplash.com/photo-1552374196-1ab2a1c593e8?w=800&q=80",
     },
     {
       id: 2,
@@ -27,7 +30,7 @@ const CustomerReviews = () => {
       title: "Best purchase this year",
       review:
         "The quality is unmatched. I've worn these on hikes, city walks, and even casual outings. They hold up great and look amazing.",
-      image: "/assets/images/review-2.jpg",
+      image: "https://images.unsplash.com/photo-1571019613454-1cb2f99b2d8b?w=800&q=80",
     },
     {
       id: 3,
@@ -37,16 +40,58 @@ const CustomerReviews = () => {
       title: "Stylish and durable",
       review:
         "I was skeptical at first but these exceeded all my expectations. The cushioning is perfect and they pair well with everything.",
-      image: "/assets/images/review-3.jpg",
+      image: "https://images.unsplash.com/photo-1529139574466-a303027c1d8b?w=800&q=80",
     },
   ];
 
   const nextReview = () => {
-    setCurrentIndex((prev) => (prev + 1) % reviews.length);
+    if (isAnimating) return;
+    setIsAnimating(true);
+    
+    gsap.to(cardRef.current, {
+      x: "-100%",
+      opacity: 0,
+      duration: 0.4,
+      ease: "power2.in",
+      onComplete: () => {
+        setCurrentIndex((prev) => (prev + 1) % reviews.length);
+        gsap.fromTo(cardRef.current,
+          { x: "100%", opacity: 0 },
+          { 
+            x: "0%", 
+            opacity: 1, 
+            duration: 0.4, 
+            ease: "power2.out",
+            onComplete: () => setIsAnimating(false)
+          }
+        );
+      }
+    });
   };
 
   const prevReview = () => {
-    setCurrentIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
+    if (isAnimating) return;
+    setIsAnimating(true);
+    
+    gsap.to(cardRef.current, {
+      x: "100%",
+      opacity: 0,
+      duration: 0.4,
+      ease: "power2.in",
+      onComplete: () => {
+        setCurrentIndex((prev) => (prev - 1 + reviews.length) % reviews.length);
+        gsap.fromTo(cardRef.current,
+          { x: "-100%", opacity: 0 },
+          { 
+            x: "0%", 
+            opacity: 1, 
+            duration: 0.4, 
+            ease: "power2.out",
+            onComplete: () => setIsAnimating(false)
+          }
+        );
+      }
+    });
   };
 
   const currentReview = reviews[currentIndex];
@@ -60,21 +105,13 @@ const CustomerReviews = () => {
         </h2>
 
         {/* Reviews Carousel */}
-        <div className="relative">
-          <div className="flex items-stretch gap-4">
-            {/* Previous Review Preview (partial) */}
-            <div className="hidden lg:block w-24 flex-shrink-0 overflow-hidden opacity-50">
-              <div className="h-full bg-neutral-100 rounded-lg">
-                <img
-                  src={reviews[(currentIndex - 1 + reviews.length) % reviews.length].image}
-                  alt=""
-                  className="w-full h-full object-cover rounded-lg"
-                />
-              </div>
-            </div>
-
+        <div className="relative overflow-hidden">
+          <div className="flex items-stretch">
             {/* Main Review Card */}
-            <div className="flex-1 border-2 border-blue-600 rounded-lg overflow-hidden">
+            <div 
+              ref={cardRef}
+              className="w-full border-2 border-blue-600 rounded-lg overflow-hidden"
+            >
               <div className="grid grid-cols-1 md:grid-cols-2 min-h-[400px]">
                 {/* Image */}
                 <div className="relative h-64 md:h-auto">
@@ -135,17 +172,6 @@ const CustomerReviews = () => {
                     </button>
                   </div>
                 </div>
-              </div>
-            </div>
-
-            {/* Next Review Preview (partial) */}
-            <div className="hidden lg:block w-24 flex-shrink-0 overflow-hidden opacity-50">
-              <div className="h-full bg-neutral-100 rounded-lg">
-                <img
-                  src={reviews[(currentIndex + 1) % reviews.length].image}
-                  alt=""
-                  className="w-full h-full object-cover rounded-lg"
-                />
               </div>
             </div>
           </div>

@@ -28,11 +28,28 @@ export default function Navbar() {
   };
 
   const isActive = (href) => {
-    const hrefPath = href.split("?")[0];
-    return (
-      currentPath === hrefPath ||
-      (hrefPath !== "/" && currentPath.startsWith(hrefPath))
-    );
+    const [hrefPath, hrefSearch] = href.split("?");
+    const currentUrl = new URL(window.location.href);
+    const currentPathname = currentUrl.pathname;
+
+    // Must match the pathname first
+    if (currentPathname !== hrefPath) return false;
+
+    // If the link has query params, they must match
+    if (hrefSearch) {
+      const hrefParams = new URLSearchParams(hrefSearch);
+      for (const [key, value] of hrefParams) {
+        if (currentUrl.searchParams.get(key) !== value) return false;
+      }
+      return true;
+    }
+
+    // "All Products" link (/products with no params) is active only when no gender/sort filters
+    if (hrefPath === "/products") {
+      return !currentUrl.searchParams.get("gender") && !currentUrl.searchParams.get("sort");
+    }
+
+    return true;
   };
 
   return (
@@ -64,8 +81,8 @@ export default function Navbar() {
                 href={l.href}
                 className={`relative text-sm font-semibold tracking-wide transition-colors py-2 ${
                   isActive(l.href)
-                    ? "text-amber-600"
-                    : "text-neutral-700 hover:text-amber-600"
+                    ? "text-amber-500"
+                    : "text-neutral-700 hover:text-amber-500"
                 }`}
               >
                 {l.label}
@@ -87,7 +104,7 @@ export default function Navbar() {
               placeholder="Search products..."
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-40 lg:w-52 rounded-full bg-neutral-100 py-2.5 pl-10 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-amber-500/50 focus:bg-white transition-all"
+              className="w-40 lg:w-52 rounded-full bg-neutral-100 py-2.5 pl-10 pr-4 text-sm text-neutral-900 placeholder:text-neutral-400 focus:outline-none focus:ring-2 focus:ring-yellow-400/50 focus:bg-white transition-all"
             />
           </form>
 
@@ -143,7 +160,7 @@ export default function Navbar() {
             className="relative p-2.5 rounded-full hover:bg-neutral-100 transition-colors"
           >
             <ShoppingBag className="h-5 w-5 text-neutral-700" />
-            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-amber-500 text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
+            <span className="absolute -top-0.5 -right-0.5 w-5 h-5 bg-yellow-400 text-neutral-900 text-xs font-bold rounded-full flex items-center justify-center">
               0
             </span>
           </button>
@@ -179,7 +196,7 @@ export default function Navbar() {
                 href={l.href}
                 className={`block py-3 px-4 text-sm font-semibold rounded-lg transition-colors ${
                   isActive(l.href)
-                    ? "bg-amber-500 text-neutral-900"
+                    ? "bg-yellow-400 text-neutral-900"
                     : "text-neutral-700 hover:bg-neutral-200"
                 }`}
                 onClick={() => setOpen(false)}
@@ -199,7 +216,7 @@ export default function Navbar() {
             </button>
             <button
               aria-label="Shopping Cart"
-              className="flex-1 flex items-center justify-center gap-2 py-3 bg-amber-500 text-neutral-900 rounded-lg font-medium"
+              className="flex-1 flex items-center justify-center gap-2 py-3 bg-yellow-400 text-neutral-900 rounded-lg font-medium"
             >
               <ShoppingBag className="h-5 w-5" />
               Cart (0)

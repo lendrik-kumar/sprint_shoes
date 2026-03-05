@@ -27,7 +27,6 @@ const ProductCard = ({
   const discount = originalPrice
     ? Math.round((1 - price / originalPrice) * 100)
     : null;
-  const [isHovered, setIsHovered] = React.useState(false);
   const [isFavorite, setIsFavorite] = React.useState(false);
 
   const handleFavoriteClick = (e) => {
@@ -51,39 +50,18 @@ const ProductCard = ({
           animationDelay: `${index * 100}ms`,
           animationFillMode: "backwards",
         }}
-        onMouseEnter={() => setIsHovered(true)}
-        onMouseLeave={() => setIsHovered(false)}
       >
         {/* Image Container */}
         <div className="relative aspect-square overflow-hidden bg-neutral-100">
-          {/* Main Image */}
+          {/* Main Image – zooms in on hover */}
           <img
             src={thumbnail}
             alt={name}
-            className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ${
-              isHovered && images.length > 1
-                ? "opacity-0 scale-110"
-                : "opacity-100 scale-100"
-            }`}
+            className="absolute inset-0 h-full w-full object-cover transition-transform duration-700 group-hover:scale-110"
           />
-
-          {/* Hover Image */}
-          {images.length > 1 && (
-            <img
-              src={images[1]}
-              alt={`${name} alternate view`}
-              className={`absolute inset-0 h-full w-full object-cover transition-all duration-700 ${
-                isHovered ? "opacity-100 scale-100" : "opacity-0 scale-110"
-              }`}
-            />
-          )}
 
           {/* Gradient Overlay */}
-          <div
-            className={`absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent transition-opacity duration-300 ${
-              isHovered ? "opacity-100" : "opacity-0"
-            }`}
-          />
+          <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
 
           {/* Badges */}
           <div className="absolute top-3 left-3 flex flex-col gap-2">
@@ -107,10 +85,8 @@ const ProductCard = ({
           {/* Favorite Button */}
           <button
             onClick={handleFavoriteClick}
-            className={`absolute top-3 right-3 p-2.5 rounded-full bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-110 ${
-              isHovered || isFavorite
-                ? "opacity-100 translate-x-0"
-                : "opacity-0 translate-x-4"
+            className={`absolute top-3 right-3 p-2.5 rounded-full bg-white/95 backdrop-blur-sm shadow-lg transition-all duration-300 hover:scale-110 opacity-0 translate-x-4 group-hover:opacity-100 group-hover:translate-x-0 ${
+              isFavorite ? 'opacity-100 translate-x-0' : ''
             }`}
             aria-label={
               isFavorite ? "Remove from favorites" : "Add to favorites"
@@ -135,13 +111,7 @@ const ProductCard = ({
           )}
 
           {/* Quick Actions - Shows on Hover */}
-          <div
-            className={`absolute bottom-4 left-4 right-4 flex gap-2 transition-all duration-500 ${
-              isHovered
-                ? "opacity-100 translate-y-0"
-                : "opacity-0 translate-y-8"
-            }`}
-          >
+          <div className="absolute bottom-4 left-4 right-4 flex gap-2 transition-all duration-500 opacity-0 translate-y-8 group-hover:opacity-100 group-hover:translate-y-0">
             <button
               onClick={handleAddToCart}
               className="flex-1 flex items-center justify-center gap-2 py-3 bg-yellow-400 text-black font-bold text-sm rounded-xl hover:bg-yellow-500 transition-colors shadow-lg"
@@ -159,14 +129,14 @@ const ProductCard = ({
         </div>
 
         {/* Content */}
-        <div className="p-5">
+        <div className="p-5 border-t border-neutral-100">
           {/* Brand */}
-          <p className="text-xs font-semibold text-amber-600 uppercase tracking-wider mb-2">
+          <p className="text-xs font-semibold text-neutral-400 uppercase tracking-widest mb-1.5">
             {brand}
           </p>
 
           {/* Name */}
-          <h3 className="text-base font-bold text-neutral-900 line-clamp-2 group-hover:text-amber-600 transition-colors mb-2">
+          <h3 className="text-base font-bold text-neutral-900 line-clamp-2 group-hover:text-amber-500 transition-colors mb-2.5">
             {name}
           </h3>
 

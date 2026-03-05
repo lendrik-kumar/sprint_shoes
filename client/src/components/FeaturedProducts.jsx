@@ -53,7 +53,7 @@ const FeaturedProducts = () => {
           <CategoryCard
             title="Men's Collection"
             description="Explore performance and style"
-            image="/assets/shoes/shoe-10.avif"
+            image="/assets/shoes/shoe-10.png"
             href="/products?gender=men"
             icon={<TrendingUp className="w-5 h-5" />}
           />
@@ -91,11 +91,11 @@ const FeaturedProducts = () => {
             </p>
             <Link
               href="/products?sort=newest"
-              className="group inline-flex items-center gap-3 px-8 py-4 bg-gradient-to-r from-amber-400 to-yellow-400 text-neutral-900 font-bold rounded-full transition-all duration-300 hover:shadow-xl hover:shadow-amber-500/40 hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden"
+              className="group inline-flex items-center gap-3 px-8 py-4 bg-yellow-400 text-neutral-900 font-bold rounded-full transition-all duration-300 hover:shadow-xl hover:shadow-yellow-400/40 hover:-translate-y-0.5 active:translate-y-0 relative overflow-hidden"
             >
               <span className="relative z-10">Shop New Arrivals</span>
               <ArrowRight className="w-5 h-5 relative z-10 group-hover:translate-x-1 transition-transform" />
-              <div className="absolute inset-0 bg-gradient-to-r from-yellow-400 to-amber-300 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+              <div className="absolute inset-0 bg-yellow-500 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
             </Link>
           </div>
         </div>

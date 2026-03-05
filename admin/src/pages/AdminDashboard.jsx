@@ -1,48 +1,64 @@
-import React, { useState, useEffect } from 'react';
-import { BarChart3, Users, Package, ShoppingCart, TrendingUp, LogOut } from 'lucide-react';
-import { Button, Spinner, Alert, Modal, Input, Select, Textarea } from '../components/UI';
+import React, { useState, useEffect, useCallback } from 'react';
+import { BarChart3, Users, Package, ShoppingCart, TrendingUp, LogOut, Plus, Pencil, Trash2, Eye, RefreshCw } from 'lucide-react';
+import { useAuthStore } from '../stores/authStore';
 
+// ─── API helper ─────────────────────────────────────────────────────────────
+const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:3000/api';
+
+function getToken() {
+  return localStorage.getItem('accessToken');
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(`${API_BASE}${path}`, {
+    headers: {
+      'Content-Type': 'application/json',
+      Authorization: `Bearer ${getToken()}`,
+      ...opts.headers,
+    },
+    ...opts,
+  });
+  const json = await res.json();
+  if (!res.ok) throw new Error(json.message || `API error ${res.status}`);
+  return json;
+}
+
+// ─── Shared tiny UI primitives ──────────────────────────────────────────────
+function Spinner({ className = '' }) {
+  return (
+    <div className={`flex justify-center items-center py-20 ${className}`}>
+      <div className="w-8 h-8 border-4 border-blue-500 border-t-transparent rounded-full animate-spin" />
+    </div>
+  );
+}
+
+function Badge({ children, color = 'gray' }) {
+  const colors = {
+    green: 'bg-green-100 text-green-800',
+    blue: 'bg-blue-100 text-blue-800',
+    yellow: 'bg-yellow-100 text-yellow-800',
+    red: 'bg-red-100 text-red-800',
+    purple: 'bg-purple-100 text-purple-800',
+    gray: 'bg-gray-100 text-gray-800',
+  };
+  return (
+    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${colors[color] || colors.gray}`}>
+      {children}
+    </span>
+  );
+}
+
+// ─── Main Layout ────────────────────────────────────────────────────────────
 export function AdminDashboard() {
-  const [stats, setStats] = useState(null);
-  const [loading, setLoading] = useState(true);
   const [currentTab, setCurrentTab] = useState('dashboard');
-
-  useEffect(() => {
-    fetchStats();
-  }, []);
-
-  const fetchStats = async () => {
-    try {
-      // const response = await fetch('/api/admin/stats');
-      // const data = await response.json();
-      // setStats(data);
-      setStats({
-        totalUsers: 1250,
-        totalOrders: 3420,
-        totalRevenue: 5420000,
-        todayRevenue: 125000,
-        activeUsers: 432,
-        pendingOrders: 28,
-      });
-    } catch (err) {
-      // Handle error silently in production
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleLogout = () => {
-    // Logout logic
-    window.location.hash = '/';
-  };
+  const { logout } = useAuthStore();
 
   const NavButton = ({ tab, label, icon: Icon }) => (
     <button
       onClick={() => setCurrentTab(tab)}
-      className={`
-        w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors
-        ${currentTab === tab ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'}
-      `}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
+        currentTab === tab ? 'bg-black text-white' : 'text-gray-700 hover:bg-gray-100'
+      }`}
     >
       <Icon className="w-5 h-5" />
       {label}
@@ -52,37 +68,32 @@ export function AdminDashboard() {
   return (
     <div className="flex h-screen bg-gray-100">
       {/* Sidebar */}
-      <div className="w-64 bg-white border-r border-gray-200 overflow-y-auto">
+      <div className="w-64 bg-white border-r border-gray-200 flex flex-col">
         <div className="p-6 border-b border-gray-200">
           <h1 className="text-2xl font-bold">Admin</h1>
           <p className="text-sm text-gray-600 mt-1">Management Panel</p>
         </div>
-
-        <nav className="p-4 space-y-2">
+        <nav className="p-4 space-y-2 flex-1">
           <NavButton tab="dashboard" label="Dashboard" icon={BarChart3} />
           <NavButton tab="users" label="Users" icon={Users} />
           <NavButton tab="products" label="Products" icon={Package} />
           <NavButton tab="orders" label="Orders" icon={ShoppingCart} />
           <NavButton tab="analytics" label="Analytics" icon={TrendingUp} />
         </nav>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t border-gray-200 bg-white">
-          <Button
-            fullWidth
-            variant="secondary"
-            size="sm"
-            onClick={handleLogout}
-            className="justify-center"
+        <div className="p-4 border-t border-gray-200">
+          <button
+            onClick={logout}
+            className="w-full flex items-center justify-center gap-2 px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
           >
             <LogOut className="w-4 h-4" />
             Logout
-          </Button>
+          </button>
         </div>
       </div>
 
       {/* Main Content */}
       <div className="flex-1 overflow-auto">
-        {currentTab === 'dashboard' && <AdminDashboardContent stats={stats} loading={loading} />}
+        {currentTab === 'dashboard' && <DashboardTab />}
         {currentTab === 'users' && <UserManagementTab />}
         {currentTab === 'products' && <ProductManagementTab />}
         {currentTab === 'orders' && <OrderManagementTab />}
@@ -92,16 +103,31 @@ export function AdminDashboard() {
   );
 }
 
-function AdminDashboardContent({ stats, loading }) {
-  if (loading) return <Spinner size="lg" className="mt-20" />;
+// ═══════════════════════════════════════════════════════════════════════════
+// Dashboard Tab – real stats from /admin/stats
+// ═══════════════════════════════════════════════════════════════════════════
+function DashboardTab() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  const StatCard = ({ icon: Icon, title, value, trend }) => (
+  useEffect(() => {
+    api('/admin/stats')
+      .then((json) => setStats(json.data))
+      .catch((e) => setError(e.message))
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+  if (error) return <div className="p-8 text-red-600">Error loading dashboard: {error}</div>;
+  if (!stats) return null;
+
+  const StatCard = ({ icon: Icon, title, value }) => (
     <div className="bg-white rounded-lg p-6 border border-gray-200">
       <div className="flex items-center justify-between">
         <div>
           <p className="text-gray-600 text-sm font-medium">{title}</p>
           <p className="text-2xl font-bold text-gray-900 mt-2">{value}</p>
-          {trend && <p className="text-sm text-green-600 mt-2">↑ {trend} from last month</p>}
         </div>
         <Icon className="w-8 h-8 text-gray-400" />
       </div>
@@ -112,122 +138,149 @@ function AdminDashboardContent({ stats, loading }) {
     <div className="p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Dashboard</h1>
 
-      {/* KPI Cards */}
       <div className="grid grid-cols-4 gap-6 mb-8">
         <StatCard icon={Users} title="Total Users" value={stats.totalUsers} />
         <StatCard icon={ShoppingCart} title="Total Orders" value={stats.totalOrders} />
         <StatCard
           icon={TrendingUp}
           title="Total Revenue"
-          value={`₹${(stats.totalRevenue / 100000).toFixed(1)}L`}
+          value={stats.totalRevenue > 0 ? `₹${(stats.totalRevenue / 100).toLocaleString('en-IN')}` : '₹0'}
         />
         <StatCard icon={Package} title="Pending Orders" value={stats.pendingOrders} />
       </div>
 
-      {/* Charts Area */}
       <div className="grid grid-cols-2 gap-6">
+        {/* Revenue Over Time */}
         <div className="bg-white rounded-lg p-6 border border-gray-200">
           <h2 className="text-lg font-bold text-gray-900 mb-4">Revenue Trend</h2>
-          <div className="h-64 flex items-center justify-center text-gray-400">
-            Chart Placeholder
-          </div>
+          {stats.revenueOverTime && stats.revenueOverTime.length > 0 ? (
+            <div className="space-y-2">
+              {stats.revenueOverTime.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <span className="text-gray-600 text-sm">{item.month || item.date}</span>
+                  <span className="font-semibold">₹{(item.revenue / 100).toLocaleString('en-IN')}</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center text-gray-400">
+              No revenue data yet — orders will appear here
+            </div>
+          )}
         </div>
+
+        {/* Sales by Category */}
         <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Order Status</h2>
-          <div className="space-y-4">
-            {[
-              { status: 'Delivered', count: 2840, color: 'bg-green-100 text-green-800' },
-              { status: 'Processing', count: 340, color: 'bg-blue-100 text-blue-800' },
-              { status: 'Pending', count: 240, color: 'bg-yellow-100 text-yellow-800' },
-              { status: 'Cancelled', count: 0, color: 'bg-red-100 text-red-800' },
-            ].map((item) => (
-              <div key={item.status} className="flex items-center justify-between">
-                <span className={`px-3 py-1 rounded-full text-sm font-medium ${item.color}`}>
-                  {item.status}
-                </span>
-                <span className="font-bold text-gray-900">{item.count}</span>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Sales by Category</h2>
+          {stats.salesByCategory && stats.salesByCategory.length > 0 ? (
+            <div className="space-y-4">
+              {stats.salesByCategory.map((item, idx) => (
+                <div key={idx} className="flex items-center justify-between">
+                  <span className="text-gray-700">{item.category}</span>
+                  <div className="text-right">
+                    <span className="font-bold">{item.count} orders</span>
+                    <span className="text-gray-500 text-sm ml-2">
+                      ₹{(item.revenue / 100).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <div className="h-48 flex items-center justify-center text-gray-400">
+              No sales data yet — orders will appear here
+            </div>
+          )}
         </div>
       </div>
+
+      {/* Recent Orders */}
+      {stats.recentOrders && stats.recentOrders.length > 0 && (
+        <div className="bg-white rounded-lg p-6 border border-gray-200 mt-6">
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Recent Orders</h2>
+          <table className="w-full">
+            <thead>
+              <tr className="text-left text-sm text-gray-500 border-b">
+                <th className="pb-2">Order #</th>
+                <th className="pb-2">Customer</th>
+                <th className="pb-2">Amount</th>
+                <th className="pb-2">Status</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y">
+              {stats.recentOrders.map((o) => (
+                <tr key={o.id} className="text-sm">
+                  <td className="py-2 font-medium">{o.orderNumber}</td>
+                  <td className="py-2 text-gray-600">{o.customer || '—'}</td>
+                  <td className="py-2 font-semibold">₹{(o.amount / 100).toLocaleString('en-IN')}</td>
+                  <td className="py-2">
+                    <Badge color={o.status === 'DELIVERED' ? 'green' : o.status === 'CANCELLED' ? 'red' : 'blue'}>
+                      {o.status}
+                    </Badge>
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// User Management Tab
+// ═══════════════════════════════════════════════════════════════════════════
 function UserManagementTab() {
   const [users, setUsers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
-  const [selectedUser, setSelectedUser] = useState(null);
-  const [showModal, setShowModal] = useState(false);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchUsers();
-  }, []);
-
-  const fetchUsers = async () => {
+  const fetchUsers = useCallback(async () => {
+    setLoading(true);
     try {
-      // const response = await fetch('/api/admin/users');
-      // const data = await response.json();
-      // setUsers(data);
-      setUsers([
-        {
-          id: '1',
-          email: 'user1@example.com',
-          firstName: 'John',
-          role: 'USER',
-          isActive: true,
-          createdAt: '2024-01-15',
-        },
-        {
-          id: '2',
-          email: 'user2@example.com',
-          firstName: 'Jane',
-          role: 'USER',
-          isActive: true,
-          createdAt: '2024-01-20',
-        },
-      ]);
-    } catch (err) {
-      // Handle error silently in production
+      const json = await api(`/admin/users?limit=50${search ? `&search=${encodeURIComponent(search)}` : ''}`);
+      setUsers(json.data || []);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, [search]);
 
-  const handleDeactivateUser = async (userId) => {
-    if (window.confirm('Are you sure you want to deactivate this user?')) {
-      try {
-        // await fetch(`/api/admin/users/${userId}/deactivate`, { method: 'POST' });
-        fetchUsers();
-      } catch (err) {
-        // Handle error silently in production
-      }
+  useEffect(() => { fetchUsers(); }, [fetchUsers]);
+
+  const handleToggleActive = async (user) => {
+    const action = user.isActive ? 'deactivate' : 'activate';
+    if (!window.confirm(`Are you sure you want to ${action} ${user.email}?`)) return;
+    try {
+      await api(`/admin/users/${user.id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ isActive: !user.isActive }),
+      });
+      fetchUsers();
+    } catch (e) {
+      alert(`Failed to ${action} user: ${e.message}`);
     }
   };
-
-  const filteredUsers = users.filter(
-    (user) =>
-      user.email.toLowerCase().includes(search.toLowerCase()) ||
-      user.firstName.toLowerCase().includes(search.toLowerCase())
-  );
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">User Management</h1>
-        <div className="w-64">
-          <Input
-            placeholder="Search users..."
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-          />
-        </div>
+        <input
+          className="w-64 px-3 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          placeholder="Search users..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+        />
       </div>
 
+      {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">{error}</div>}
+
       {loading ? (
-        <Spinner size="lg" />
+        <Spinner />
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full">
@@ -242,33 +295,34 @@ function UserManagementTab() {
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
-              {filteredUsers.map((user) => (
+              {users.length === 0 && (
+                <tr>
+                  <td colSpan={6} className="px-6 py-8 text-center text-gray-500">No users found</td>
+                </tr>
+              )}
+              {users.map((user) => (
                 <tr key={user.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm text-gray-900">{user.email}</td>
-                  <td className="px-6 py-4 text-sm text-gray-900">{user.firstName}</td>
-                  <td className="px-6 py-4 text-sm">
-                    <span className="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs font-medium">
-                      {user.role}
-                    </span>
+                  <td className="px-6 py-4 text-sm text-gray-900">
+                    {user.firstName} {user.lastName || ''}
                   </td>
                   <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-2 py-1 rounded text-xs font-medium ${
-                        user.isActive ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
-                      }`}
-                    >
+                    <Badge color={user.role === 'ADMIN' ? 'purple' : 'gray'}>{user.role}</Badge>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <Badge color={user.isActive ? 'green' : 'red'}>
                       {user.isActive ? 'Active' : 'Inactive'}
-                    </span>
+                    </Badge>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(user.createdAt).toLocaleDateString()}
                   </td>
                   <td className="px-6 py-4 text-sm">
                     <button
-                      onClick={() => handleDeactivateUser(user.id)}
-                      className="text-red-600 hover:text-red-800 font-medium"
+                      onClick={() => handleToggleActive(user)}
+                      className={`font-medium ${user.isActive ? 'text-red-600 hover:text-red-800' : 'text-green-600 hover:text-green-800'}`}
                     >
-                      Deactivate
+                      {user.isActive ? 'Deactivate' : 'Activate'}
                     </button>
                   </td>
                 </tr>
@@ -281,167 +335,336 @@ function UserManagementTab() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Product Management Tab — FULL CRUD
+// ═══════════════════════════════════════════════════════════════════════════
+const EMPTY_FORM = {
+  name: '',
+  description: '',
+  basePrice: '',
+  discountPrice: '',
+  discountPercent: '',
+  categoryId: '',
+  sku: '',
+  image: '',
+};
+
 function ProductManagementTab() {
   const [products, setProducts] = useState([]);
+  const [categories, setCategories] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
+  const [saving, setSaving] = useState(false);
+
+  // Modal state
   const [showModal, setShowModal] = useState(false);
-  const [formData, setFormData] = useState({
-    name: '',
-    description: '',
-    basePrice: '',
-    discountPrice: '',
-    category: '',
-    sku: '',
-  });
+  const [editingId, setEditingId] = useState(null);
+  const [formData, setFormData] = useState(EMPTY_FORM);
 
-  useEffect(() => {
-    fetchProducts();
-  }, []);
-
-  const fetchProducts = async () => {
+  // Fetch products from real API
+  const fetchProducts = useCallback(async () => {
+    setLoading(true);
     try {
-      // const response = await fetch('/api/admin/products');
-      // const data = await response.json();
-      // setProducts(data);
-      setProducts([
-        {
-          id: '1',
-          name: 'Running Shoes',
-          basePrice: 5999,
-          discountPrice: 4999,
-          category: 'Sports',
-          sku: 'RS001',
-        },
-        {
-          id: '2',
-          name: 'Casual Shoes',
-          basePrice: 3999,
-          discountPrice: 2999,
-          category: 'Casual',
-          sku: 'CS001',
-        },
-      ]);
-    } catch (err) {
-      // Handle error silently in production
+      const json = await api('/admin/products?limit=100');
+      setProducts(json.data || []);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
+  }, []);
+
+  // Fetch categories for the dropdown
+  const fetchCategories = useCallback(async () => {
+    try {
+      const json = await api('/products/filters/meta');
+      setCategories(json.data?.categories || []);
+    } catch {
+      // fallback – not critical
+    }
+  }, []);
+
+  useEffect(() => {
+    fetchProducts();
+    fetchCategories();
+  }, [fetchProducts, fetchCategories]);
+
+  // Open the modal in create mode
+  const openCreateModal = () => {
+    setEditingId(null);
+    setFormData(EMPTY_FORM);
+    setShowModal(true);
   };
 
-  const handleAddProduct = async (e) => {
+  // Open the modal in edit mode, pre-fill the form
+  const openEditModal = (product) => {
+    setEditingId(product.id);
+    setFormData({
+      name: product.name || '',
+      description: product.description || '',
+      basePrice: String(product.basePrice || ''),
+      discountPrice: String(product.discountPrice || ''),
+      discountPercent: String(product.discountPercent || ''),
+      categoryId: product.categoryId || '',
+      sku: product.sku || '',
+      image: product.images?.[0]?.url || '',
+    });
+    setShowModal(true);
+  };
+
+  // Save (create or update)
+  const handleSave = async (e) => {
     e.preventDefault();
+    setSaving(true);
+    setError(null);
     try {
-      // const response = await fetch('/api/admin/products', {
-      //   method: 'POST',
-      //   headers: { 'Content-Type': 'application/json' },
-      //   body: JSON.stringify(formData)
-      // });
-      // const newProduct = await response.json();
-      // setProducts([...products, newProduct]);
-      setFormData({
-        name: '',
-        description: '',
-        basePrice: '',
-        discountPrice: '',
-        category: '',
-        sku: '',
-      });
+      const payload = {
+        name: formData.name,
+        description: formData.description,
+        basePrice: formData.basePrice,
+        discountPrice: formData.discountPrice || null,
+        discountPercent: formData.discountPercent || null,
+        categoryId: formData.categoryId,
+        sku: formData.sku,
+        image: formData.image || null,
+      };
+
+      if (editingId) {
+        await api(`/admin/products/${editingId}`, {
+          method: 'PUT',
+          body: JSON.stringify(payload),
+        });
+      } else {
+        await api('/admin/products', {
+          method: 'POST',
+          body: JSON.stringify(payload),
+        });
+      }
+
       setShowModal(false);
-    } catch (err) {
-      // Handle error silently in production
+      setFormData(EMPTY_FORM);
+      setEditingId(null);
+      fetchProducts();
+    } catch (e) {
+      setError(e.message);
+    } finally {
+      setSaving(false);
     }
   };
+
+  // Delete product
+  const handleDelete = async (product) => {
+    if (!window.confirm(`Delete "${product.name}"? This cannot be undone.`)) return;
+    try {
+      await api(`/admin/products/${product.id}`, { method: 'DELETE' });
+      fetchProducts();
+    } catch (e) {
+      alert(`Delete failed: ${e.message}`);
+    }
+  };
+
+  const updateField = (field, value) => setFormData((prev) => ({ ...prev, [field]: value }));
 
   return (
     <div className="p-8">
       <div className="flex justify-between items-center mb-8">
         <h1 className="text-3xl font-bold text-gray-900">Product Management</h1>
-        <Button onClick={() => setShowModal(true)}>+ Add Product</Button>
+        <button
+          onClick={openCreateModal}
+          className="flex items-center gap-2 px-5 py-2.5 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" /> Add Product
+        </button>
       </div>
 
-      <Modal
-        isOpen={showModal}
-        title="Add New Product"
-        onClose={() => setShowModal(false)}
-        size="lg"
-        actions={[
-          { label: 'Cancel', variant: 'secondary', onClick: () => setShowModal(false) },
-          { label: 'Add Product', onClick: handleAddProduct },
-        ]}
-      >
-        <form onSubmit={handleAddProduct} className="space-y-4">
-          <Input
-            label="Product Name"
-            required
-            value={formData.name}
-            onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-          />
-          <Textarea
-            label="Description"
-            value={formData.description}
-            onChange={(e) => setFormData({ ...formData, description: e.target.value })}
-          />
-          <div className="grid grid-cols-2 gap-4">
-            <Input
-              label="Base Price"
-              type="number"
-              required
-              value={formData.basePrice}
-              onChange={(e) => setFormData({ ...formData, basePrice: e.target.value })}
-            />
-            <Input
-              label="Discount Price"
-              type="number"
-              value={formData.discountPrice}
-              onChange={(e) => setFormData({ ...formData, discountPrice: e.target.value })}
-            />
-          </div>
-          <Input
-            label="SKU"
-            required
-            value={formData.sku}
-            onChange={(e) => setFormData({ ...formData, sku: e.target.value })}
-          />
-          <Select
-            label="Category"
-            value={formData.category}
-            onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-            options={[
-              { value: '', label: 'Select Category' },
-              { value: 'Sports', label: 'Sports' },
-              { value: 'Casual', label: 'Casual' },
-              { value: 'Formal', label: 'Formal' },
-            ]}
-          />
-        </form>
-      </Modal>
+      {error && (
+        <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg flex justify-between items-center">
+          {error}
+          <button onClick={() => setError(null)} className="text-red-500 font-bold">✕</button>
+        </div>
+      )}
 
+      {/* ── Product Modal ────────────────────────────────────────── */}
+      {showModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+          <div className="bg-white w-full max-w-lg rounded-xl shadow-2xl">
+            <div className="flex justify-between items-center px-6 py-4 border-b">
+              <h2 className="text-xl font-bold">{editingId ? 'Edit Product' : 'Add New Product'}</h2>
+              <button onClick={() => setShowModal(false)} className="text-gray-500 hover:text-gray-800 text-xl">✕</button>
+            </div>
+            <form onSubmit={handleSave} className="p-6 space-y-4 max-h-[70vh] overflow-y-auto">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Product Name *</label>
+                <input
+                  required
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={formData.name}
+                  onChange={(e) => updateField('name', e.target.value)}
+                />
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Description</label>
+                <textarea
+                  rows={3}
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  value={formData.description}
+                  onChange={(e) => updateField('description', e.target.value)}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Base Price *</label>
+                  <input
+                    type="number"
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    value={formData.basePrice}
+                    onChange={(e) => updateField('basePrice', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Discount Price</label>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    value={formData.discountPrice}
+                    onChange={(e) => updateField('discountPrice', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Discount %</label>
+                  <input
+                    type="number"
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    value={formData.discountPercent}
+                    onChange={(e) => updateField('discountPercent', e.target.value)}
+                  />
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">SKU *</label>
+                  <input
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                    value={formData.sku}
+                    onChange={(e) => updateField('sku', e.target.value)}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">Category *</label>
+                  <select
+                    required
+                    className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none bg-white"
+                    value={formData.categoryId}
+                    onChange={(e) => updateField('categoryId', e.target.value)}
+                  >
+                    <option value="">Select Category</option>
+                    {categories.map((c) => (
+                      <option key={c.id} value={c.id}>{c.name}</option>
+                    ))}
+                  </select>
+                </div>
+              </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Image URL</label>
+                <input
+                  className="w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:outline-none"
+                  placeholder="/assets/shoes/shoe-5.avif"
+                  value={formData.image}
+                  onChange={(e) => updateField('image', e.target.value)}
+                />
+              </div>
+              <div className="flex justify-end gap-3 pt-2">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={saving}
+                  className="px-5 py-2 text-sm font-medium text-white bg-blue-600 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+                >
+                  {saving ? 'Saving...' : editingId ? 'Update Product' : 'Add Product'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* ── Products Table ────────────────────────────────────────── */}
       {loading ? (
-        <Spinner size="lg" />
+        <Spinner />
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full">
             <thead className="bg-gray-50 border-b border-gray-200">
               <tr>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Image</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Name</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">SKU</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Price</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Category</th>
+                <th className="px-6 py-3 text-left text-sm font-semibold">Status</th>
                 <th className="px-6 py-3 text-left text-sm font-semibold">Actions</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-200">
+              {products.length === 0 && (
+                <tr>
+                  <td colSpan={7} className="px-6 py-12 text-center text-gray-500">
+                    No products yet. Click "Add Product" to create one.
+                  </td>
+                </tr>
+              )}
               {products.map((product) => (
                 <tr key={product.id} className="hover:bg-gray-50">
+                  <td className="px-6 py-3">
+                    <img
+                      src={product.images?.[0]?.url || '/assets/shoes/shoe-5.avif'}
+                      alt={product.name}
+                      className="w-12 h-12 object-cover rounded-lg"
+                    />
+                  </td>
                   <td className="px-6 py-4 text-sm font-medium text-gray-900">{product.name}</td>
                   <td className="px-6 py-4 text-sm text-gray-600">{product.sku}</td>
                   <td className="px-6 py-4 text-sm">
-                    ₹{product.discountPrice || product.basePrice}
+                    <div>
+                      {product.discountPrice ? (
+                        <>
+                          <span className="font-semibold">₹{product.discountPrice}</span>
+                          <span className="text-gray-400 line-through ml-2 text-xs">₹{product.basePrice}</span>
+                        </>
+                      ) : (
+                        <span className="font-semibold">₹{product.basePrice}</span>
+                      )}
+                    </div>
                   </td>
-                  <td className="px-6 py-4 text-sm">{product.category}</td>
-                  <td className="px-6 py-4 text-sm space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">Edit</button>
-                    <button className="text-red-600 hover:text-red-800">Delete</button>
+                  <td className="px-6 py-4 text-sm">{product.category?.name || '—'}</td>
+                  <td className="px-6 py-4 text-sm">
+                    <Badge color={product.isActive ? 'green' : 'red'}>
+                      {product.isActive ? 'Active' : 'Inactive'}
+                    </Badge>
+                  </td>
+                  <td className="px-6 py-4 text-sm">
+                    <div className="flex items-center gap-3">
+                      <button
+                        onClick={() => openEditModal(product)}
+                        className="text-blue-600 hover:text-blue-800 flex items-center gap-1"
+                      >
+                        <Pencil className="w-3.5 h-3.5" /> Edit
+                      </button>
+                      <button
+                        onClick={() => handleDelete(product)}
+                        className="text-red-600 hover:text-red-800 flex items-center gap-1"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" /> Delete
+                      </button>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -453,58 +676,68 @@ function ProductManagementTab() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Order Management Tab
+// ═══════════════════════════════════════════════════════════════════════════
 function OrderManagementTab() {
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState(null);
 
-  useEffect(() => {
-    fetchOrders();
-  }, []);
-
-  const fetchOrders = async () => {
+  const fetchOrders = useCallback(async () => {
+    setLoading(true);
     try {
-      // const response = await fetch('/api/admin/orders');
-      // const data = await response.json();
-      // setOrders(data);
-      setOrders([
-        {
-          id: '1',
-          orderNumber: 'ORD-001',
-          userEmail: 'user@example.com',
-          status: 'PROCESSING',
-          totalAmount: 9999,
-          createdAt: '2024-01-20',
-        },
-        {
-          id: '2',
-          orderNumber: 'ORD-002',
-          userEmail: 'user2@example.com',
-          status: 'SHIPPED',
-          totalAmount: 14999,
-          createdAt: '2024-01-21',
-        },
-      ]);
-    } catch (err) {
-      // Handle error silently in production
+      const json = await api('/admin/orders?limit=50');
+      setOrders(json.data || []);
+    } catch (e) {
+      setError(e.message);
     } finally {
       setLoading(false);
     }
-  };
+  }, []);
+
+  useEffect(() => { fetchOrders(); }, [fetchOrders]);
 
   const statusColors = {
-    PENDING: 'bg-yellow-100 text-yellow-800',
-    PROCESSING: 'bg-blue-100 text-blue-800',
-    SHIPPED: 'bg-purple-100 text-purple-800',
-    DELIVERED: 'bg-green-100 text-green-800',
-    CANCELLED: 'bg-red-100 text-red-800',
+    PENDING: 'yellow',
+    PROCESSING: 'blue',
+    SHIPPED: 'purple',
+    DELIVERED: 'green',
+    CANCELLED: 'red',
+  };
+
+  const handleUpdateStatus = async (order, newStatus) => {
+    try {
+      await api(`/admin/orders/${order.id}/status`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      fetchOrders();
+    } catch (e) {
+      alert(`Failed to update status: ${e.message}`);
+    }
   };
 
   return (
     <div className="p-8">
-      <h1 className="text-3xl font-bold text-gray-900 mb-8">Order Management</h1>
+      <div className="flex justify-between items-center mb-8">
+        <h1 className="text-3xl font-bold text-gray-900">Order Management</h1>
+        <button
+          onClick={fetchOrders}
+          className="flex items-center gap-2 px-4 py-2 text-sm text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50"
+        >
+          <RefreshCw className="w-4 h-4" /> Refresh
+        </button>
+      </div>
+
+      {error && <div className="mb-4 p-3 bg-red-50 text-red-700 rounded-lg">{error}</div>}
 
       {loading ? (
-        <Spinner size="lg" />
+        <Spinner />
+      ) : orders.length === 0 ? (
+        <div className="bg-white rounded-lg border border-gray-200 p-12 text-center text-gray-500">
+          No orders yet. Orders placed by customers will appear here.
+        </div>
       ) : (
         <div className="bg-white rounded-lg border border-gray-200 overflow-hidden">
           <table className="w-full">
@@ -522,21 +755,26 @@ function OrderManagementTab() {
               {orders.map((order) => (
                 <tr key={order.id} className="hover:bg-gray-50">
                   <td className="px-6 py-4 text-sm font-medium">{order.orderNumber}</td>
-                  <td className="px-6 py-4 text-sm text-gray-600">{order.userEmail}</td>
+                  <td className="px-6 py-4 text-sm text-gray-600">{order.user?.email || '—'}</td>
                   <td className="px-6 py-4 text-sm font-semibold">₹{order.totalAmount}</td>
                   <td className="px-6 py-4 text-sm">
-                    <span
-                      className={`px-3 py-1 rounded-full text-xs font-medium ${statusColors[order.status]}`}
-                    >
-                      {order.status}
-                    </span>
+                    <Badge color={statusColors[order.status] || 'gray'}>{order.status}</Badge>
                   </td>
                   <td className="px-6 py-4 text-sm text-gray-600">
                     {new Date(order.createdAt).toLocaleDateString()}
                   </td>
-                  <td className="px-6 py-4 text-sm space-x-2">
-                    <button className="text-blue-600 hover:text-blue-800">View</button>
-                    <button className="text-orange-600 hover:text-orange-800">Update</button>
+                  <td className="px-6 py-4 text-sm">
+                    <select
+                      value={order.status}
+                      onChange={(e) => handleUpdateStatus(order, e.target.value)}
+                      className="text-sm border border-gray-300 rounded px-2 py-1 bg-white"
+                    >
+                      <option value="PENDING">Pending</option>
+                      <option value="PROCESSING">Processing</option>
+                      <option value="SHIPPED">Shipped</option>
+                      <option value="DELIVERED">Delivered</option>
+                      <option value="CANCELLED">Cancelled</option>
+                    </select>
                   </td>
                 </tr>
               ))}
@@ -548,40 +786,77 @@ function OrderManagementTab() {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════════════════
+// Analytics Tab – real aggregated data
+// ═══════════════════════════════════════════════════════════════════════════
 function AnalyticsTab() {
+  const [stats, setStats] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    api('/admin/stats')
+      .then((json) => setStats(json.data))
+      .catch(() => {})
+      .finally(() => setLoading(false));
+  }, []);
+
+  if (loading) return <Spinner />;
+
   return (
     <div className="p-8">
       <h1 className="text-3xl font-bold text-gray-900 mb-8">Analytics</h1>
+
+      <div className="grid grid-cols-3 gap-6 mb-8">
+        <div className="bg-white rounded-lg p-6 border border-gray-200 text-center">
+          <p className="text-gray-600 text-sm">Total Products</p>
+          <p className="text-3xl font-bold mt-2">{stats?.totalProducts ?? 0}</p>
+        </div>
+        <div className="bg-white rounded-lg p-6 border border-gray-200 text-center">
+          <p className="text-gray-600 text-sm">Total Users</p>
+          <p className="text-3xl font-bold mt-2">{stats?.totalUsers ?? 0}</p>
+        </div>
+        <div className="bg-white rounded-lg p-6 border border-gray-200 text-center">
+          <p className="text-gray-600 text-sm">Total Orders</p>
+          <p className="text-3xl font-bold mt-2">{stats?.totalOrders ?? 0}</p>
+        </div>
+      </div>
+
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Top Products</h2>
-          <div className="space-y-3">
-            {[
-              { name: 'Running Shoes', sales: 340 },
-              { name: 'Casual Shoes', sales: 280 },
-              { name: 'Sports Shoes', sales: 190 },
-            ].map((item) => (
-              <div key={item.name} className="flex justify-between items-center">
-                <span className="text-gray-700">{item.name}</span>
-                <span className="font-bold">{item.sales} sales</span>
-              </div>
-            ))}
-          </div>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Sales by Category</h2>
+          {stats?.salesByCategory?.length > 0 ? (
+            <div className="space-y-3">
+              {stats.salesByCategory.map((item, idx) => (
+                <div key={idx} className="flex justify-between items-center">
+                  <span className="text-gray-700">{item.category}</span>
+                  <span className="font-bold">{item.count} orders</span>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <p className="text-gray-400 py-8 text-center">No sales data yet</p>
+          )}
         </div>
 
         <div className="bg-white rounded-lg p-6 border border-gray-200">
-          <h2 className="text-lg font-bold text-gray-900 mb-4">Revenue Breakdown</h2>
+          <h2 className="text-lg font-bold text-gray-900 mb-4">Revenue Summary</h2>
           <div className="space-y-3">
-            {[
-              { category: 'Online Sales', amount: '₹15,40,000' },
-              { category: 'Returns', amount: '-₹1,20,000' },
-              { category: 'Discounts', amount: '-₹2,80,000' },
-            ].map((item) => (
-              <div key={item.category} className="flex justify-between items-center">
-                <span className="text-gray-700">{item.category}</span>
-                <span className="font-bold">{item.amount}</span>
-              </div>
-            ))}
+            <div className="flex justify-between items-center">
+              <span className="text-gray-700">Total Revenue</span>
+              <span className="font-bold">
+                ₹{stats?.totalRevenue ? (stats.totalRevenue / 100).toLocaleString('en-IN') : '0'}
+              </span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-700">Total Orders</span>
+              <span className="font-bold">{stats?.totalOrders ?? 0}</span>
+            </div>
+            <div className="flex justify-between items-center">
+              <span className="text-gray-700">Avg Order Value</span>
+              <span className="font-bold">
+                ₹{stats?.totalOrders > 0 ? Math.round(stats.totalRevenue / stats.totalOrders / 100).toLocaleString('en-IN') : '0'}
+              </span>
+            </div>
           </div>
         </div>
       </div>
